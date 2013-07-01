@@ -2,6 +2,8 @@ Revision history for MooseX::Attribute::TypeConstraint::CustomizeFatal
 
 {{$NEXT}}
 
+0.02 2013-07-01 10:43:59
+
    - Add tests and documentation about the limitations of this module.
 
 0.01 2012-05-02 20:14:13
