@@ -149,6 +149,13 @@ unexpected values, but you don't want to die and return an error to
 the user just because some minor subsystem rendering the page is
 getting a value it didn't expect.
 
+=head1 CAVEATS
+
+=head2 This doesn't work if you make your classes immutable
+
+I.e. with C<__PACKAGE__->meta->make_immutable;> at the end of the
+class in question instead of C<1;>.
+
 =head1 ACKNOWLEDGMENT
 
 This module was originally developed at and for Booking.com. With
