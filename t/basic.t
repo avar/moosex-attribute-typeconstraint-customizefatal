@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 11;
+use Test::More tests => 15;
 use Try::Tiny;
 
 {
@@ -27,12 +27,39 @@ use Try::Tiny;
         );
     }
 
+    1;
 }
 
 {
     package ImmutableClass;
     our @ISA = ('Class');
     __PACKAGE__->meta->make_immutable;
+}
+
+{
+    package RwClass;
+    use Moose;
+    use MooseX::Types::Moose ':all';
+    use MooseX::Attribute::TypeConstraint::CustomizeFatal;
+
+    my %attributes = (
+        a => "warning",
+        b => "default",
+        c => "default_no_warning",
+        d => "error",
+    );
+
+    while (my ($attribute, $on_typeconstraint_failure) = each %attributes) {
+        has $attribute => (
+            is                        => 'rw',
+            isa                       => Int,
+            default                   => 12345,
+
+            traits                    => ['TypeConstraint::CustomizeFatal'],
+            on_typeconstraint_failure => $on_typeconstraint_failure,
+        );
+    }
+
 }
 
 my @tests = (
@@ -104,7 +131,7 @@ my @tests = (
             },
             "We got a default value with default"
         );
-    }
+    },
 );
 
 # Testing just a plain mutable class
@@ -120,5 +147,15 @@ for my $test (@tests) {
         my ($why) = $_ =~ /\A(.*)/; # Just the first line, not a huge stacktrace
         fail $why;
       }
+    };
+}
+
+# This doesn't work on accessors
+for my $accessor ("a".."d") {
+    try {
+        RwClass->new;
+        RwClass->$accessor("foo");
+    } catch {
+        like($_, qr/does not pass the type constraint/, "We got an error on accessor as expected");
     };
 }
