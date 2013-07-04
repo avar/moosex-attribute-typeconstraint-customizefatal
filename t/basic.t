@@ -20,7 +20,7 @@ use Try::Tiny;
         has $attribute => (
             is                        => 'ro',
             isa                       => Int,
-            default                   => 12345,
+            default                   => int rand 2 == 0 ? 12345 : sub { 12345 },
 
             traits                    => ['TypeConstraint::CustomizeFatal'],
             on_typeconstraint_failure => $on_typeconstraint_failure,

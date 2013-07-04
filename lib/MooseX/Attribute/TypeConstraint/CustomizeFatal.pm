@@ -45,7 +45,12 @@ around _coerce_and_verify => sub {
                      $action eq 'default_no_warning') {
                 warn $error unless $action eq 'default_no_warning';
                 if ($self->has_default) {
-                    return $self->default;
+                    my $default = $self->default;
+                    return ref $default eq 'CODE'
+                        # If it's e.g. sub { [] }
+                        ? $default->()
+                        # It's just a normal SV, e.g. "12345"
+                        : $default;
                 } else {
                     confess(
                         "Attribute ("
