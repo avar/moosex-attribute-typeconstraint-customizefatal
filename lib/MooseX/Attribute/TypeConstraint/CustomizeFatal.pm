@@ -1,3 +1,4 @@
+# snth moosex-attribute-typeconstraint-customizefatal (master=) $ perl5.18.2 -Mblib=../moose -MMoose -Ilib t/basic.t  2>&1 | less -S
 package MooseX::Attribute::TypeConstraint::CustomizeFatal;
 use Moose::Role;
 use MooseX::Types::Moose ':all';
@@ -67,6 +68,26 @@ around _coerce_and_verify => sub {
             die $error;
         }
     };
+};
+
+around _inline_check_constraint => sub {
+    my $orig = shift;
+    my $self = shift;
+
+    my $default = $self->default;
+    my $default_value = ref $default eq 'CODE'
+        # If it's e.g. sub { [] }
+        ? $default->()
+        # It's just a normal SV, e.g. "12345"
+        : $default;
+
+    my (@return) = $self->$orig(@_);
+
+    use Carp qw(longmess);
+
+    use Data::Dumper;
+    print STDERR longmess(Dumper(\@return));
+    return @return;
 };
 
 package Moose::Meta::Attribute::Custom::Trait::TypeConstraint::CustomizeFatal;
