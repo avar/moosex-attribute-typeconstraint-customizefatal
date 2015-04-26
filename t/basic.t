@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 15;
+use Test::More tests => 21;
 use Try::Tiny;
 
 {
@@ -134,28 +134,89 @@ my @tests = (
     },
 );
 
-# Testing just a plain mutable class
 $_->('Class') for @tests;
+$_->('ImmutableClass') for @tests;
 
-# Testing a mutable class
-for my $test (@tests) {
-    try {
-        $test->('ImmutableClass');
-    } catch {
-      TODO: {
-        local $TODO = "Our _coerce_and_verify isn't called when you __PACKAGE__->meta->make_immutable";
-        my ($why) = $_ =~ /\A(.*)/; # Just the first line, not a huge stacktrace
-        fail $why;
-      }
-    };
-}
+my @tests_accessor = (
+    # "warning"
+    sub {
+        my ($class) = @_;
+        my ($warning, $obj);
+        {
+            local $SIG{__WARN__} = sub { $warning .= "@_" };
+            $obj = $class->new();
+            $obj->a('foo');
+        }
+        like($warning, qr/does not pass the type constraint/, "We got a warning");
+        is_deeply(
+            {%$obj},
+            {
+                'a' => 'foo',
+                'b' => 12345,
+                'c' => 12345,
+                'd' => 12345
+            },
+            "We got an incorrect value with a warning"
+        );
+    },
+    # "default"
+    sub {
+        my ($class) = @_;
+        my $obj;
+        try {
+            $obj = $class->new();
+            $obj->b('foo');
+        } catch {
+            like($_, qr/does not pass the type constraint/, "We got an exception on using accessor with default");
+            TODO: {
+                local $TODO = "value is not set to default";
+                is_deeply(
+                    {%$obj},
+                    {
+                        'a' => 12345,
+                        'b' => 12345,
+                        'c' => 12345,
+                        'd' => 12345
+                    },
+                    "We got a default value with default"
+                    );
+              }
+        };
+    },
+    # "default_no_warning"
+    sub {
+        my ($class) = @_;
+        my $obj;
+        try {
+            $obj = $class->new();
+            $obj->c('foo');
+        } catch {
+            like($_, qr/does not pass the type constraint/, "We got an exception on using accessor with default_no_warning");
+            TODO: {
+                local $TODO = "value is not set to default";
+                is_deeply(
+                    {%$obj},
+                    {
+                        'a' => 12345,
+                        'b' => 12345,
+                        'c' => 12345,
+                        'd' => 12345
+                    },
+                    "We got a default value with default_no_warning"
+                    );
+              }
+        };
+    },
+    # "error"
+    sub {
+        my ($class) = @_;
+        try {
+            $class->new();
+            $class->d( "foo" );
+        } catch {
+            like($_, qr/does not pass the type constraint/, "We got an error on accessor");
+        };
+    },
+);
 
-# This doesn't work on accessors
-for my $accessor ("a".."d") {
-    try {
-        RwClass->new;
-        RwClass->$accessor("foo");
-    } catch {
-        like($_, qr/does not pass the type constraint/, "We got an error on accessor as expected");
-    };
-}
+$_->('RwClass') for @tests_accessor;
