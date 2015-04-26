@@ -21,6 +21,44 @@ has on_typeconstraint_failure => (
     documentation => "What should we do when a typeconstraint fails? Possible values: " . join(", ", @{ TypeConstraintCustomizeFatalAction->values }),
 );
 
+sub _inline_throw_exception {
+    my ( $self, $exception_type, $throw_args, $default_val_var ) = @_;
+
+    my $exception = 'my $exception = Module::Runtime::use_module( "Moose::Exception::' . $exception_type . '")->new(' . ($throw_args || '') . ');';
+    $exception .= 'my $message = $exception->message;';
+    $exception .= 'my $value = $exception->value;';
+
+    if( $exception_type eq "ValidationFailedForInlineTypeConstraint" ) {
+        my $action = $self->on_typeconstraint_failure;
+        if ($action eq 'warning') {
+            return $exception.'warn $message;';
+        } elsif ( $action eq 'default' or
+                 $action eq 'default_no_warning' ) {
+            if ($self->has_default) {
+                my $default = $self->default;
+                my $default_val = ref $default eq 'CODE'
+                    # If it's e.g. sub { [] }
+                    ? $default->()
+                    # It's just a normal SV, e.g. "12345"
+                    : $default;
+                $exception .= 'eval {'.sprintf('%s = %s;', $default_val_var,$default_val ).'};';
+                $exception .= 'if( $@ =~ /read.?only/ ) {';
+                $exception .= 'die $exception';
+                $exception .= '} else {';
+                $exception .= 'warn $message;' unless $action eq 'default_no_warning';
+                $exception .= '}';
+                return $exception;
+            } else {
+                return $exception. 'confess("Attribute ($exception->attribute_name) does not have a default value to fall back to");';
+            }
+        } else {
+            return $exception.'die $exception;';
+        }
+    } else {
+        return $exception.'die $exception;';
+    }
+}
+
 around _coerce_and_verify => sub {
     my $orig = shift;
     my $self = shift;
